@@ -1,0 +1,7 @@
+[package]
+name = "unwrap-laplacian"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+dft-lib = {git = "https://git@github.com/wyatt-A/dft-lib.git", default-features = true}

@@ -1,8 +1,16 @@
 use array_lib::ArrayDim;
+use array_lib::num_complex::Complex32;
 use dft_lib::common::{FftDirection, NormalizationType};
-use dft_lib::rs_fft::rs_fftn;
-use num_complex::Complex32;
 use rayon::prelude::*;
+
+#[cfg(feature = "cuda")]
+use dft_lib::cu_fft::cu_fftn as fftn;
+
+#[cfg(feature = "fftw")]
+use dft_lib::fftw_fft::fftw_fftn as fftn;
+
+#[cfg(not(any(feature = "fftw", feature = "cuda")))]
+use dft_lib::rs_fft::rs_fftn as fftn;
 
 #[cfg(test)]
 mod tests {
@@ -62,25 +70,25 @@ pub fn unwrap(freq:&[f32], dims:&[usize], vox_size:&[f32]) -> Vec<f32> {
     let mut first_term = sin_f.clone();
     let mut second_term = cos_f.clone();
 
-    rs_fftn(&mut first_term, dims, FftDirection::Forward, NormalizationType::Inverse);
-    rs_fftn(&mut second_term, dims, FftDirection::Forward, NormalizationType::Inverse);
+    fftn(&mut first_term, dims, FftDirection::Forward, NormalizationType::Inverse);
+    fftn(&mut second_term, dims, FftDirection::Forward, NormalizationType::Inverse);
 
     first_term.iter_mut().zip(kern.iter()).for_each(|(x,&k)| *x = *x * k);
     second_term.iter_mut().zip(kern.iter()).for_each(|(x,&k)| *x = *x * k);
 
-    rs_fftn(&mut first_term, dims, FftDirection::Inverse, NormalizationType::Inverse);
-    rs_fftn(&mut second_term, dims, FftDirection::Inverse, NormalizationType::Inverse);
+    fftn(&mut first_term, dims, FftDirection::Inverse, NormalizationType::Inverse);
+    fftn(&mut second_term, dims, FftDirection::Inverse, NormalizationType::Inverse);
 
     first_term.iter_mut().zip(cos_f.iter()).for_each(|(x,&k)| *x = *x * k);
     second_term.iter_mut().zip(sin_f.iter()).for_each(|(x,&k)| *x = *x * k);
 
     first_term.iter_mut().zip(second_term.iter()).for_each(|(x,&y)| *x = *x - y);
 
-    rs_fftn(&mut first_term, dims, FftDirection::Forward, NormalizationType::Inverse);
+    fftn(&mut first_term, dims, FftDirection::Forward, NormalizationType::Inverse);
 
     first_term.iter_mut().zip(inv_kern.into_iter()).for_each(|(x,k)| *x = *x * k);
 
-    rs_fftn(&mut first_term, dims, FftDirection::Inverse, NormalizationType::Inverse);
+    fftn(&mut first_term, dims, FftDirection::Inverse, NormalizationType::Inverse);
 
     first_term.into_par_iter().map(|x| x.re).collect()
 
@@ -144,7 +152,7 @@ pub fn laplacian_kernel(dims:&[usize], vox_size:&[f32]) -> Vec<Complex32> {
     let idx = a_dims.calc_addr(&s_coords);
     kern[idx].re = 1./ (vox_size[2] * vox_size[2]);
 
-    rs_fftn(&mut kern,&dims,FftDirection::Forward,NormalizationType::None);
+    fftn(&mut kern,&dims,FftDirection::Forward,NormalizationType::None);
 
     kern
 }

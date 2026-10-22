@@ -4,8 +4,11 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
-dft-lib = {git = "ssh://git@github.com/wyatt-A/dft-lib.git", default-features = true}
-array-lib = {git = "https://git@github.com/wyatt-A/array-lib.git", features = ["io-nrrd"]}
-num-complex = "0.4.6"
+dft-lib = {git = "ssh://git@github.com/wyatt-A/dft-lib.git"}
+array-lib = {git = "ssh://git@github.com/wyatt-A/array-lib.git", features = ["io-cfl","io-nrrd"]}
 rayon = "1.11.0"
 clap = { version = "4.5.47", features = ["derive"] }
+
+[features]
+cuda = ["dft-lib/cuda"]
+fftw = ["dft-lib/fftw"]

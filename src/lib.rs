@@ -1,3 +1,5 @@
+pub mod region_growing;
+
 use array_lib::ArrayDim;
 use array_lib::num_complex::Complex32;
 use dft_lib::common::{FftDirection, NormalizationType};

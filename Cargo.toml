@@ -6,6 +6,7 @@ edition = "2024"
 [dependencies]
 dft-lib = {git = "ssh://git@github.com/wyatt-A/dft-lib.git"}
 array-lib = {git = "ssh://git@github.com/wyatt-A/array-lib.git", features = ["io-cfl","io-nrrd"]}
+mask = {git = "ssh://git@github.com/wyatt-A/mask.git"}
 rayon = "1.11.0"
 clap = { version = "4.5.47", features = ["derive"] }
 

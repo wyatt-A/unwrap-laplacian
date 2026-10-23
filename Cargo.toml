@@ -9,6 +9,7 @@ array-lib = {git = "ssh://git@github.com/wyatt-A/array-lib.git", features = ["io
 mask = {git = "ssh://git@github.com/wyatt-A/mask.git"}
 rayon = "1.11.0"
 clap = { version = "4.5.47", features = ["derive"] }
+log = "0.4.34"
 
 [features]
 cuda = ["dft-lib/cuda"]

@@ -1,16 +1,27 @@
 use std::path::PathBuf;
-use array_lib::io_cfl::read_cfl;
+use array_lib::io_cfl::{read_cfl, write_cfl};
 use clap::Parser;
-use mask::mask;
-
+use rayon::prelude::*;
+use std::cmp::Ordering;
+use std::collections::BinaryHeap;
+use std::f32::consts::PI;
+use std::time::Instant;
+use array_lib::ArrayDim;
+use array_lib::cfl::num_traits::Zero;
+use array_lib::num_complex::Complex32;
 
 #[derive(Parser,Debug)]
 struct Args {
-    /// input .nhdr or .nrrd
+    /// input complex image
     cfl_in:PathBuf,
-    /// output .nhdr
+
+    /// input mask for region growing algorithm
+    cfl_mask:PathBuf,
+
+    /// output real phase
     cfl_out:PathBuf,
 
+    /// radius for seed initialization relative to central image sample
     #[clap(short,long,default_value_t=20)]
     seed_radius:usize,
 
@@ -22,39 +33,62 @@ fn main() {
 
     let args = Args::parse();
 
+
+    if args.debug {
+        println!("loading image data:");
+        println!("{}",args.cfl_in.display());
+        println!("{}",args.cfl_mask.display());
+    }
+
     let (x,dims) = read_cfl(args.cfl_in);
+    let (m,m_dims) = read_cfl(args.cfl_mask);
 
-    let magn:Vec<_> = x.iter().map(|x|x.norm()).collect();
-    let phase:Vec<_> = x.iter().map(|x|x.to_polar().1).collect();
+    assert_eq!(dims.numel(),m_dims.numel(),"input and mask must be the same size");
 
-    let mut m = vec![0.;dims.numel()];
-    println!("solving for mask ...");
-    mask(&magn,&mut m,dims.shape_ns());
+    let m:Vec<_> = m.par_iter().map(|m| if m.is_zero() {0.} else {1.}).collect();
 
-    let mut unwrapped = vec![0.;dims.numel()];
+    let mut magn = dims.alloc(0.);
+    let mut phase = dims.alloc(0.);
 
-    println!("unwrapping ...");
+    magn.par_iter_mut().zip(phase.par_iter_mut()).enumerate().for_each(|(i,(magn,phase))|{
+        (*magn,*phase) = x[i].to_polar();
+    });
+
+    let mut unwrapped = dims.alloc(0.);
+
+    if args.debug {
+        println!("unwrapping ...");
+    }
+
+    let now = Instant::now();
     unwrap_phase_3d(&phase,&magn,&m,&mut unwrapped,dims.shape_ns(),args.seed_radius);
+    let dur = now.elapsed().as_secs();
+
+    if args.debug {
+        println!("unwrapping took {} sec",dur);
+    }
 
     // find mean phase value and integer offset to normalize
 
-    let a = unwrapped.iter().filter(|x| x.is_finite()).map(|x| *x as f64).sum::<f64>();
-    let b = m.iter().map(|x| *x as f64).sum::<f64>();
+    if args.debug {
+        println!("normalizing phase ...");
+    }
 
+    let a = unwrapped.par_iter().filter(|x| x.is_finite()).map(|x| *x as f64).sum::<f64>();
+    let b = m.par_iter().map(|x| *x as f64).sum::<f64>();
     let p_mu = a / b;
     let n = (p_mu as f32 / (2.0 * PI)).round();
-    unwrapped.iter_mut().for_each(|x| *x -= n*2.0*PI);
 
-    write_nifti(args.cfl_out,&unwrapped,dims);
+    if args.debug {
+        println!("mean image phase: {} rad ({}) cycles",p_mu,n);
+    }
+
+    unwrapped.iter_mut().for_each(|x| *x -= n*2.0*PI);
+    let unwrapped:Vec<_> = unwrapped.into_par_iter().map(|x|Complex32::new(x,0.)).collect();
+    write_cfl(args.cfl_out,&unwrapped,dims);
 }
 
 
-
-use std::cmp::Ordering;
-use std::collections::BinaryHeap;
-use std::f32::consts::PI;
-use array_lib::ArrayDim;
-use array_lib::io_nifti::write_nifti;
 
 #[derive(Clone, Copy, Debug)]
 struct Candidate {

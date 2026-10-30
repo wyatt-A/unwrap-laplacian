@@ -1,4 +1,7 @@
 pub mod region_growing;
+pub mod polynomial_model;
+pub mod unwrap_rg;
+pub mod bspline3d;
 
 use array_lib::ArrayDim;
 use array_lib::num_complex::Complex32;
